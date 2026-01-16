@@ -1,5 +1,5 @@
 <?php
-// routes/web.php - COMPLETE FIXED VERSION
+// routes/web.php - FINAL COMPLETE VERSION
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
@@ -8,6 +8,20 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\SettingsController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application.
+| These routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
 
 // Guest Routes (Not Authenticated)
 Route::middleware('guest')->group(function () {
@@ -23,12 +37,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [RegisterController::class, 'store']);
 });
 
-// Authenticated Routes
+// Authenticated Routes (Outside Admin Panel)
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LogoutController::class, 'destroy'])->name('logout');
 });
 
-// Admin Routes (Authenticated + Role Check)
+// Admin Panel Routes (Authenticated + Role Check)
 Route::middleware(['auth', 'role:super-admin,admin,manager'])->prefix('admin')->name('admin.')->group(function () {
     
     // Dashboard
@@ -36,12 +50,32 @@ Route::middleware(['auth', 'role:super-admin,admin,manager'])->prefix('admin')->
         ->name('dashboard')
         ->middleware('permission:view-dashboard');
     
-    // User Management Routes
+    // ============================================
+    // PROFILE MANAGEMENT (Available for All Users)
+    // ============================================
+    Route::controller(ProfileController::class)->prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', 'show')->name('show');
+        Route::get('/edit', 'edit')->name('edit');
+        Route::put('/', 'update')->name('update');
+        Route::put('/password', 'updatePassword')->name('update-password');
+        Route::delete('/avatar', 'deleteAvatar')->name('delete-avatar');
+    });
+    
+    // ============================================
+    // NOTIFICATIONS (Available for All Users)
+    // ============================================
+    Route::controller(NotificationController::class)->prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/{id}/read', 'markAsRead')->name('mark-read');
+        Route::post('/mark-all-read', 'markAllAsRead')->name('mark-all-read');
+        Route::delete('/{id}', 'destroy')->name('destroy');
+    });
+    
+    // ============================================
+    // USER MANAGEMENT
+    // ============================================
     Route::middleware('permission:view-users')->group(function () {
-        // Index - with GET for filters
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        
-        // Show specific user
         Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
     });
     
@@ -59,8 +93,18 @@ Route::middleware(['auth', 'role:super-admin,admin,manager'])->prefix('admin')->
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
     
-    // Role Management (Super Admin & Admin only)
+    // ============================================
+    // ROLE MANAGEMENT (Super Admin & Admin Only)
+    // ============================================
     Route::middleware('role:super-admin,admin')->group(function () {
         Route::resource('roles', RoleController::class)->except(['show']);
+    });
+    
+    // ============================================
+    // SETTINGS (Admin & Super Admin Only)
+    // ============================================
+    Route::middleware('permission:manage-settings')->controller(SettingsController::class)->prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::put('/', 'update')->name('update');
     });
 });

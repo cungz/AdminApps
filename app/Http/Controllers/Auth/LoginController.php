@@ -4,9 +4,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -18,37 +18,12 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request)
+    public function store(LoginRequest $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
+        $request->authenticate();
+        $request->session()->regenerate();
 
-        $remember = $request->filled('remember');
-
-        if (Auth::attempt($credentials, $remember)) {
-            $request->session()->regenerate();
-
-            // Update last login
-            auth()->user()->update([
-                'last_login_at' => now(),
-            ]);
-
-            // Check if user is active
-            if (!auth()->user()->isActive()) {
-                Auth::logout();
-                throw ValidationException::withMessages([
-                    'email' => 'Your account is inactive. Please contact administrator.',
-                ]);
-            }
-
-            return redirect()->intended(route('admin.dashboard'))
-                ->with('success', 'Welcome back, ' . auth()->user()->name . '!');
-        }
-
-        throw ValidationException::withMessages([
-            'email' => 'The provided credentials do not match our records.',
-        ]);
+        return redirect()->intended(route('admin.dashboard'))
+            ->with('success', 'Welcome back, ' . auth()->user()->name . '!');
     }
 }

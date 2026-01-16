@@ -1,14 +1,15 @@
 <?php
-// app/Http/Controllers/Admin/UserController.php - FIXED VERSION
+// app/Http/Controllers/Admin/UserController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
@@ -50,23 +51,13 @@ class UserController extends Controller
         return view('admin.users.create', compact('roles'));
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'confirmed', Password::defaults()],
-            'status' => ['required', 'in:active,inactive'],
-            'roles' => ['required', 'array', 'min:1'],
-            'roles.*' => ['exists:roles,id'],
-            'avatar' => ['nullable', 'image', 'max:2048'],
-        ]);
-
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'status' => $validated['status'],
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'status' => $request->status,
         ]);
 
         // Handle avatar upload
@@ -76,7 +67,7 @@ class UserController extends Controller
         }
 
         // Assign roles
-        $user->roles()->sync($validated['roles']);
+        $user->roles()->sync($request->roles);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User created successfully.');
@@ -95,26 +86,17 @@ class UserController extends Controller
         return view('admin.users.edit', compact('user', 'roles', 'userRoles'));
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
-            'status' => ['required', 'in:active,inactive'],
-            'roles' => ['required', 'array', 'min:1'],
-            'roles.*' => ['exists:roles,id'],
-            'avatar' => ['nullable', 'image', 'max:2048'],
-        ]);
-
         $user->update([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'status' => $validated['status'],
+            'name' => $request->name,
+            'email' => $request->email,
+            'status' => $request->status,
         ]);
 
-        if (!empty($validated['password'])) {
-            $user->update(['password' => Hash::make($validated['password'])]);
+        // Update password if provided
+        if ($request->filled('password')) {
+            $user->update(['password' => Hash::make($request->password)]);
         }
 
         // Handle avatar upload
@@ -128,7 +110,7 @@ class UserController extends Controller
         }
 
         // Sync roles
-        $user->roles()->sync($validated['roles']);
+        $user->roles()->sync($request->roles);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
